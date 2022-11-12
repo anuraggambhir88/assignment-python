@@ -9,7 +9,7 @@
 ##Issue 1: 
 -API - /Version did support DELETE 
 -Solution : Fixed in the API by disabling the Delete Call
--Removed "@app.get("/version/")"
+-Removed "@app.delete("/version/")"
 
 
 ##Issue 2 : 
