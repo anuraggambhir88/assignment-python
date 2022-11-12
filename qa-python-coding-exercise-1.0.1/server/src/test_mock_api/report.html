@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>report.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 12-Nov-2022 at 21:56:29 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Eclipse Adoptium\jdk-8.0.345.1-hotspot\</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.1.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19044-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"anyio": "3.6.1", "html": "3.2.0", "metadata": "2.0.4", "schema": "0.1.1"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.10.5</td></tr></table>
+    <h2>Summary</h2>
+    <p>37 tests ran in 2.96 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">33 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">4 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_04_check_json_api_product_version_request_value[1.0]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">product_version_value = 1.0<br/><br/>    @pytest.mark.parametrize(&quot;product_version_value&quot;,[(1.0),(99.0),(1),(-1)])<br/>    def test_tc_04_check_json_api_product_version_request_value(product_version_value):<br/>        params.update({JsonApiReqParams.product_version:product_version_value})<br/>        response = requests.post(Endpoints.JSON,json=params)<br/>        if isinstance(product_version_value,float):<br/>&gt;           assert_equal(StatusCodes.STATUS_200,response.status_code,&#x27;statuscode&#x27;)<br/><br/>test_tc_json_api.py:59: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>expected = &#x27;200&#x27;, actual = 500, type = &#x27;statuscode&#x27;<br/><br/>    def assert_equal(expected, actual, type):<br/>        result = str(expected) == str(actual)<br/>&gt;       assert result, f&#x27;{type} actual value [{actual}] is not equal to expected value [{expected}]&#x27;<br/><span class="error">E       AssertionError: statuscode actual value [500] is not equal to expected value [200]</span><br/><br/>assert_helper.py:8: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_04_check_json_api_product_version_request_value[99.0]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">product_version_value = 99.0<br/><br/>    @pytest.mark.parametrize(&quot;product_version_value&quot;,[(1.0),(99.0),(1),(-1)])<br/>    def test_tc_04_check_json_api_product_version_request_value(product_version_value):<br/>        params.update({JsonApiReqParams.product_version:product_version_value})<br/>        response = requests.post(Endpoints.JSON,json=params)<br/>        if isinstance(product_version_value,float):<br/>&gt;           assert_equal(StatusCodes.STATUS_200,response.status_code,&#x27;statuscode&#x27;)<br/><br/>test_tc_json_api.py:59: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>expected = &#x27;200&#x27;, actual = 500, type = &#x27;statuscode&#x27;<br/><br/>    def assert_equal(expected, actual, type):<br/>        result = str(expected) == str(actual)<br/>&gt;       assert result, f&#x27;{type} actual value [{actual}] is not equal to expected value [{expected}]&#x27;<br/><span class="error">E       AssertionError: statuscode actual value [500] is not equal to expected value [200]</span><br/><br/>assert_helper.py:8: AssertionError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_03_check_xml_api_for_additional_parameter</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">def test_tc_03_check_xml_api_for_additional_parameter():<br/>        URL = Endpoints.XML + Debug.DEBUG_TRUE + &quot;&amp;additional=true&quot;<br/>        status,response = Request.send_request(RequestType.GET,URL,ApiType.XML,params=None)<br/>&gt;       assert_equal(StatusCodes.STATUS_500,status,&#x27;statuscode&#x27;)<br/><br/>test_tc_xml_api.py:29: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>expected = &#x27;500&#x27;, actual = 200, type = &#x27;statuscode&#x27;<br/><br/>    def assert_equal(expected, actual, type):<br/>        result = str(expected) == str(actual)<br/>&gt;       assert result, f&#x27;{type} actual value [{actual}] is not equal to expected value [{expected}]&#x27;<br/><span class="error">E       AssertionError: statuscode actual value [200] is not equal to expected value [500]</span><br/><br/>assert_helper.py:8: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/?debug=true&amp;additional=true
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;data&gt;
+    
+            &lt;debug&gt;
+                &lt;trace-id&gt;2314-5641-sdf2-2344dfdf&lt;/trace-id&gt;
+                &lt;request&gt;
+                    &lt;headers&gt;&lt;host value=&#x27;127.0.0.1:8000&#x27;/&gt;&lt;user-agent value=&#x27;python-requests/2.28.0&#x27;/&gt;&lt;accept-encoding value=&#x27;gzip, deflate&#x27;/&gt;&lt;accept value=&#x27;*/*&#x27;/&gt;&lt;connection value=&#x27;keep-alive&#x27;/&gt;&lt;/headers&gt;
+                &lt;/request&gt;
+            &lt;/debug&gt;
+        
+    &lt;decision_engine&gt;
+        &lt;overall&gt;Accept&lt;/overall&gt;
+        &lt;outcomes&gt;
+            &lt;rule id=&#x27;0&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;1&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;2&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;3&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;4&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;5&#x27;&gt;Accept&lt;/rule&gt;
+        &lt;/outcomes&gt;
+    &lt;/decision_engine&gt;
+&lt;/data&gt;
+    
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_03_check_xml_api_put_returns_201_status_code</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">def test_tc_03_check_xml_api_put_returns_201_status_code():<br/>        status,response = Request.send_request(RequestType.PUT,Endpoints.XML,ApiType.XML,params=None)<br/>&gt;       assert_that(str(status)).is_equal_to(StatusCodes.STATUS_201)<br/><span class="error">E       AssertionError: Expected &lt;405&gt; to be equal to &lt;201&gt;, but was not.</span><br/><br/>test_tc_xml_api.py:34: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_01_check_json_api_only_support_post_method[post-200]</td>
+          <td class="col-duration">0.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;SAVINGS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 200
+Response{&quot;format&quot;:&quot;JSON&quot;,&quot;data&quot;:{&quot;product_name&quot;:&quot;SAVINGS&quot;,&quot;product_type&quot;:&quot;NEW&quot;,&quot;product_version&quot;:1.0},&quot;additional&quot;:{&quot;overall&quot;:{&quot;duration&quot;:0.7389,&quot;result&quot;:&quot;Decline&quot;},&quot;decisions&quot;:[{&quot;ruleA0&quot;:{&quot;duration&quot;:0.752205696496157,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA1&quot;:{&quot;duration&quot;:0.7010885525570335,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA2&quot;:{&quot;duration&quot;:0.5310095823035915,&quot;result&quot;:&quot;Decline&quot;}},{&quot;ruleA3&quot;:{&quot;duration&quot;:0.343064818779374,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA4&quot;:{&quot;duration&quot;:0.6344209265224227,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA5&quot;:{&quot;duration&quot;:0.841272340330259,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA6&quot;:{&quot;duration&quot;:0.8827626382479435,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA7&quot;:{&quot;duration&quot;:0.4872545151409846,&quot;result&quot;:&quot;Accept&quot;}}]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_01_check_json_api_only_support_post_method[put-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;SAVINGS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_01_check_json_api_only_support_post_method[get-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;SAVINGS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_01_check_json_api_only_support_post_method[delete-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function delete at 0x0000016299AD6E60&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;SAVINGS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_02_check_json_api_product_name_request_value[SAVINGS]</td>
+          <td class="col-duration">0.27</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;SAVINGS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 200
+Response{&quot;format&quot;:&quot;JSON&quot;,&quot;data&quot;:{&quot;product_name&quot;:&quot;SAVINGS&quot;,&quot;product_type&quot;:&quot;NEW&quot;,&quot;product_version&quot;:1.0},&quot;additional&quot;:{&quot;overall&quot;:{&quot;duration&quot;:0.7389,&quot;result&quot;:&quot;Decline&quot;},&quot;decisions&quot;:[{&quot;ruleA0&quot;:{&quot;duration&quot;:0.5179877372904292,&quot;result&quot;:&quot;Decline&quot;}}]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_02_check_json_api_product_name_request_value[LOANS]</td>
+          <td class="col-duration">0.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;LOANS&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 200
+Response{&quot;format&quot;:&quot;JSON&quot;,&quot;data&quot;:{&quot;product_name&quot;:&quot;LOANS&quot;,&quot;product_type&quot;:&quot;NEW&quot;,&quot;product_version&quot;:1.0},&quot;additional&quot;:{&quot;overall&quot;:{&quot;duration&quot;:0.7389,&quot;result&quot;:&quot;Accept&quot;},&quot;decisions&quot;:[{&quot;ruleA0&quot;:{&quot;duration&quot;:0.38401495880880165,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA1&quot;:{&quot;duration&quot;:0.7105793841322687,&quot;result&quot;:&quot;Accept&quot;}}]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_02_check_json_api_product_name_request_value[MORTGAGES]</td>
+          <td class="col-duration">0.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;MORTGAGES&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 200
+Response{&quot;format&quot;:&quot;JSON&quot;,&quot;data&quot;:{&quot;product_name&quot;:&quot;MORTGAGES&quot;,&quot;product_type&quot;:&quot;NEW&quot;,&quot;product_version&quot;:1.0},&quot;additional&quot;:{&quot;overall&quot;:{&quot;duration&quot;:0.7389,&quot;result&quot;:&quot;Accept&quot;},&quot;decisions&quot;:[{&quot;ruleA0&quot;:{&quot;duration&quot;:0.561957239301292,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA1&quot;:{&quot;duration&quot;:0.12377028114985567,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA2&quot;:{&quot;duration&quot;:0.5532313896548816,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA3&quot;:{&quot;duration&quot;:0.013341596275764034,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA4&quot;:{&quot;duration&quot;:0.38546936517943975,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA5&quot;:{&quot;duration&quot;:0.4803340288090241,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA6&quot;:{&quot;duration&quot;:0.7353610972396127,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA7&quot;:{&quot;duration&quot;:0.7023004861469854,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA8&quot;:{&quot;duration&quot;:0.193403731179689,&quot;result&quot;:&quot;Accept&quot;}}]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_02_check_json_api_product_name_request_value[OTHER]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;OTHER&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 400
+Response{&quot;detail&quot;:&quot;Invalid request&quot;,&quot;errors&quot;:{&quot;product_name&quot;:[&quot;value is not a valid enumeration member; permitted: &#x27;SAVINGS&#x27;, &#x27;LOANS&#x27;, &#x27;MORTGAGES&#x27;, &#x27;CREDITCARD&#x27;&quot;]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_02_check_json_api_product_name_request_value[CREDITCARD]</td>
+          <td class="col-duration">0.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;CREDITCARD&#x27;, &#x27;product_type&#x27;: &#x27;New&#x27;, &#x27;product_version&#x27;: 1.0}
+********************************************
+Response Status code 200
+Response{&quot;format&quot;:&quot;JSON&quot;,&quot;data&quot;:{&quot;product_name&quot;:&quot;CREDITCARD&quot;,&quot;product_type&quot;:&quot;NEW&quot;,&quot;product_version&quot;:1.0},&quot;additional&quot;:{&quot;overall&quot;:{&quot;duration&quot;:0.7389,&quot;result&quot;:&quot;Decline&quot;},&quot;decisions&quot;:[{&quot;ruleA0&quot;:{&quot;duration&quot;:0.26553946277061635,&quot;result&quot;:&quot;Decline&quot;}},{&quot;ruleA1&quot;:{&quot;duration&quot;:0.7266996837712856,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA2&quot;:{&quot;duration&quot;:0.820864609896847,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA3&quot;:{&quot;duration&quot;:0.7144947439084992,&quot;result&quot;:&quot;Accept&quot;}},{&quot;ruleA4&quot;:{&quot;duration&quot;:0.8604460743667713,&quot;result&quot;:&quot;Decline&quot;}}]}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_03_check_json_api_product_type_request_value[account]</td>
+          <td class="col-duration">0.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_03_check_json_api_product_type_request_value[1]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_03_check_json_api_product_type_request_value[1.0]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_04_check_json_api_product_version_request_value[1]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_04_check_json_api_product_version_request_value[-1]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_05_check_json_api_response_format</td>
+          <td class="col-duration">0.20</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_06_check_json_api_response_with_other_http_methods[put-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;CREDITCARD&#x27;, &#x27;product_type&#x27;: 1.0, &#x27;product_version&#x27;: -1}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_06_check_json_api_response_with_other_http_methods[get-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;CREDITCARD&#x27;, &#x27;product_type&#x27;: 1.0, &#x27;product_version&#x27;: -1}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_06_check_json_api_response_with_other_http_methods[delete-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/json
+********************************************
+********************************************
+Request Method&lt;function delete at 0x0000016299AD6E60&gt;
+********************************************
+********************************************
+Request Params{&#x27;product_name&#x27;: &#x27;CREDITCARD&#x27;, &#x27;product_type&#x27;: 1.0, &#x27;product_version&#x27;: -1}
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_json_api.py::test_tc_07_check_json_api_response_time_is_less_than_200ms</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_01_check_user_version_api_only_support_get_method[get-200]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response{&quot;success&quot;:true,&quot;data&quot;:{&quot;version&quot;:&quot;1.0.1&quot;}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_01_check_user_version_api_only_support_get_method[put-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_01_check_user_version_api_only_support_get_method[post-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_01_check_user_version_api_only_support_get_method[delete-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function delete at 0x0000016299AD6E60&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_02_check_user_version_status_code_and_body</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response{&quot;success&quot;:true,&quot;data&quot;:{&quot;version&quot;:&quot;1.0.1&quot;}}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_03_check_user_version_response_with_other_http_methods[put-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_03_check_user_version_response_with_other_http_methods[post-405]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_version_api.py::test_tc_03_check_user_version_response_with_other_http_methods[delete-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/version
+********************************************
+********************************************
+Request Method&lt;function delete at 0x0000016299AD6E60&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_01_check_xml_api_only_support_get_method[get-200]</td>
+          <td class="col-duration">0.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;data&gt;
+    
+    &lt;decision_engine&gt;
+        &lt;overall&gt;Accept&lt;/overall&gt;
+        &lt;outcomes&gt;
+            &lt;rule id=&#x27;0&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;1&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;2&#x27;&gt;Accept&lt;/rule&gt;
+        &lt;/outcomes&gt;
+    &lt;/decision_engine&gt;
+&lt;/data&gt;
+    
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_01_check_xml_api_only_support_get_method[put-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/
+********************************************
+********************************************
+Request Method&lt;function put at 0x0000016299AD6D40&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_01_check_xml_api_only_support_get_method[post-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/
+********************************************
+********************************************
+Request Method&lt;function post at 0x0000016299AD6CB0&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_01_check_xml_api_only_support_get_method[delete-405]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/
+********************************************
+********************************************
+Request Method&lt;function delete at 0x0000016299AD6E60&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 405
+Response{&quot;detail&quot;:&quot;Method Not Allowed&quot;}
+********************************************
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_04_check_xsd_schema_against_xml_response[?debug=true]</td>
+          <td class="col-duration">0.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/?debug=true
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;data&gt;
+    
+            &lt;debug&gt;
+                &lt;trace-id&gt;2314-5641-sdf2-2344dfdf&lt;/trace-id&gt;
+                &lt;request&gt;
+                    &lt;headers&gt;&lt;host value=&#x27;127.0.0.1:8000&#x27;/&gt;&lt;user-agent value=&#x27;python-requests/2.28.0&#x27;/&gt;&lt;accept-encoding value=&#x27;gzip, deflate&#x27;/&gt;&lt;accept value=&#x27;*/*&#x27;/&gt;&lt;connection value=&#x27;keep-alive&#x27;/&gt;&lt;/headers&gt;
+                &lt;/request&gt;
+            &lt;/debug&gt;
+        
+    &lt;decision_engine&gt;
+        &lt;overall&gt;Accept&lt;/overall&gt;
+        &lt;outcomes&gt;
+            &lt;rule id=&#x27;0&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;1&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;2&#x27;&gt;Accept&lt;/rule&gt;
+        &lt;/outcomes&gt;
+    &lt;/decision_engine&gt;
+&lt;/data&gt;
+    
+********************************************
+C:\Users\checkoutqa\Downloads\qa-python-coding-exercise-1.0.1\qa-python-coding-exercise-1.0.1\server\src\test_mock_api\xml_schema_debug_true.xsd
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_tc_xml_api.py::test_tc_04_check_xsd_schema_against_xml_response[?debug=false]</td>
+          <td class="col-duration">0.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>********************************************
+Request URLhttp://127.0.0.1:8000/xml/?debug=false
+********************************************
+********************************************
+Request Method&lt;function get at 0x0000016299AD6B00&gt;
+********************************************
+********************************************
+Request ParamsNone
+********************************************
+Response Status code 200
+Response&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;data&gt;
+    
+    &lt;decision_engine&gt;
+        &lt;overall&gt;Decline&lt;/overall&gt;
+        &lt;outcomes&gt;
+            &lt;rule id=&#x27;0&#x27;&gt;Decline&lt;/rule&gt;&lt;rule id=&#x27;1&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;2&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;3&#x27;&gt;Accept&lt;/rule&gt;&lt;rule id=&#x27;4&#x27;&gt;Decline&lt;/rule&gt;&lt;rule id=&#x27;5&#x27;&gt;Accept&lt;/rule&gt;
+        &lt;/outcomes&gt;
+    &lt;/decision_engine&gt;
+&lt;/data&gt;
+    
+********************************************
+C:\Users\checkoutqa\Downloads\qa-python-coding-exercise-1.0.1\qa-python-coding-exercise-1.0.1\server\src\test_mock_api\xml_schema_debug_false.xsd
+<br/></div></td></tr></tbody></table></body></html>

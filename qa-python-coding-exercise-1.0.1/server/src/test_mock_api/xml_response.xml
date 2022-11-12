@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    
+    <decision_engine>
+        <overall>Accept</overall>
+        <outcomes>
+            <rule id='0'>Accept</rule><rule id='1'>Accept</rule>
+        </outcomes>
+    </decision_engine>
+</data>
+    

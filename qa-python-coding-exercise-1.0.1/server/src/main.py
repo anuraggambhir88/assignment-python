@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from strenum import UppercaseStrEnum
 import random
-
+from pydantic import BaseModel
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -39,6 +39,7 @@ class Product:
 
 
 app = FastAPI()
+
 
 
 @app.exception_handler(RequestValidationError)
@@ -76,7 +77,7 @@ def create_json(product: Product):
     rule_decisions = []
     for index, rule_id in enumerate(range(0, random.randint(1, 12))):
         rule_outcome = random.choice(["Accept"] * 9 + ["Decline"])
-        if rule_outcome == "Decline":
+        if rule_outcome == str("Decline"):
             overall_result = "Decline"
         rule_decisions.append({
             f"ruleA{index}": {

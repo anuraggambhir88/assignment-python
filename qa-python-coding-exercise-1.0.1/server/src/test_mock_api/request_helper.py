@@ -3,6 +3,9 @@ import requests
 from requests import RequestException
 from lxml import etree
 
+from pathlib import Path
+import xmlschema
+
 class Request:
 
     @staticmethod
@@ -39,6 +42,28 @@ class Request:
     def format_xml(response_text):
         return etree.fromstring(bytes(response_text, encoding='utf8'))
 
+    @staticmethod
+    def save_xml_response(file_name,response):
+        f_response = Path(__file__).with_name(file_name)
+        with open(f_response, 'w') as f:
+            f.write(response)
+            
+    @staticmethod
+    def get_xml_data_from_path(xml_encoded,xpath):
+        return xml_encoded.xpath(xpath)[0].text
+
+    @staticmethod
+    def get_xml_data_list_from_path(xml_encoded,xpath):
+        return etree.XPath(xpath)
+    
+
+    @staticmethod
+    def validate_xml_against_xsd(xsd_file,xml_file):
+        xsd_file_path = Path(__file__).with_name(xsd_file)
+        xml_file_path = Path(__file__).with_name(xml_file)
+        print(xsd_file_path)
+        my_schema = xmlschema.XMLSchema(xsd_file_path)
+        return my_schema.is_valid(xml_file_path)
 
 
 
@@ -67,4 +92,11 @@ class Endpoints:
 class ApiType:
     XML = "xml"
     JSON = "json"
+
+
+
+
+
+
+
     

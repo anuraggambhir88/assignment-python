@@ -12,7 +12,6 @@ class Entity:
     detail = 'detail'   
 
 
-
 class JsonApiReqParams:
     product_name = "product_name"
     product_type = "product_type"
@@ -29,6 +28,11 @@ class ProductName(Enum):
 
 class JsonEntity:
     detail = 'detail' 
+
+
+class Debug:
+    DEBUG_TRUE = "?debug=true"
+    DEBUG_FALSE = "?debug=false"
 
 
 
