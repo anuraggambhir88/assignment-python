@@ -15,12 +15,10 @@
 ##Issue 2 : 
 -API: /Json 
 -Product Version - is Number not float
--Fixed by changing the number to float type 
 
 ##Issue 3 : 
 -API: /Json
 -Response time is coming greater than 200ms randomly 
--Fixed by changing the decorator logic 
 
 ##Issue 5:
 -API /Json
